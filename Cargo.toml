@@ -1,4 +1,9 @@
 [package]
 name = "rusty-brain"
 version = "0.1.0"
+authors = ["Cosmin-Gabriel Georgescu"]
 edition = "2021"
+description = "The Rust crate with everything your brain needs!"
+repository = "https://github.com/CosminGGeorgescu/rusty-brain"
+keywords = ["EEG"]
+categories = ["science::neuroscience"]
