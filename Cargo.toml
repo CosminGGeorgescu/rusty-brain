@@ -7,3 +7,6 @@ description = "The Rust crate with everything your brain needs!"
 repository = "https://github.com/CosminGGeorgescu/rusty-brain"
 keywords = ["EEG"]
 categories = ["science::neuroscience"]
+
+[dependencies]
+rust-ini = "0.21.1"
