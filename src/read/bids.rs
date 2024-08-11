@@ -1,7 +1,7 @@
 pub mod brainvision_core {
     // * https://www.brainproducts.com/download/specification-of-brainvision-core-data-format-1-0/
 
-    use std::{path::Path, str::Split};
+    use std::{io::Read, path::Path, str::Split};
 
     pub(crate) struct Header {
         data_file: String,
@@ -15,23 +15,30 @@ pub mod brainvision_core {
         binary_format: BinaryFormat,
         channels: Vec<Channel>,
         channel_coords: Option<Vec<Coordinates>>,
-        // TODO: Find a to load the [Comment] section as an entire String
         comment: Option<String>,
     }
 
     impl Header {
-        pub fn load_header<P>(path: P) -> Header
+        pub fn load<P>(path: P) -> Header
         where
             P: AsRef<Path>,
         {
-            // TODO: Strip the first line of the file
-            let file = ini::Ini::load_from_file(path).unwrap();
+            let mut buf = String::new();
+            let _ = std::fs::File::open(path.as_ref())
+                .unwrap()
+                .read_to_string(&mut buf);
+            let comment = buf
+                .match_indices("[Comment]")
+                .next()
+                .map(|(idx, _)| buf[idx + "[Comment]".len()..buf.len()].to_string());
+            buf = buf.lines().skip(1).collect::<Vec<&str>>().join("\n");
+
+            let file = ini::Ini::load_from_str(&buf).unwrap();
 
             let common_infos = file.section(Some("Common Infos")).unwrap();
             let binary_infos = file.section(Some("Binary Infos")).unwrap();
             let channel_infos = file.section(Some("Channel Infos")).unwrap();
             let coordinates = file.section(Some("Coordinates"));
-            let comment = file.section(Some("Comment"));
 
             let data_file = common_infos.get("DataFile").unwrap().into();
             let marker_file = common_infos.get("MarkerFile").unwrap().into();
@@ -82,15 +89,12 @@ pub mod brainvision_core {
                 .map(|(_, v)| Channel::from(v.split(',')))
                 .collect::<Vec<Channel>>();
 
-            let channel_coords = match coordinates {
-                Some(coords) => Some(
-                    coords
-                        .iter()
-                        .map(|(_, v)| Coordinates::from(v.split(',')))
-                        .collect::<Vec<Coordinates>>(),
-                ),
-                None => None,
-            };
+            let channel_coords = coordinates.map(|coords| {
+                coords
+                    .iter()
+                    .map(|(_, v)| Coordinates::from(v.split(',')))
+                    .collect::<Vec<Coordinates>>()
+            });
 
             Header {
                 data_file,
@@ -104,7 +108,7 @@ pub mod brainvision_core {
                 binary_format,
                 channels,
                 channel_coords,
-                comment: None,
+                comment,
             }
         }
     }
