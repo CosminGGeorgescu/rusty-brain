@@ -1,7 +1,8 @@
 pub mod brainvision_core {
     // * https://www.brainproducts.com/download/specification-of-brainvision-core-data-format-1-0/
 
-    use std::{io::Read, path::Path, str::Split};
+    use core::str;
+    use std::{fmt::Display, io::Read, path::Path, str::Split};
 
     pub struct Header {
         data_file: String,
@@ -118,7 +119,6 @@ pub mod brainvision_core {
         Int16 = 1,
     }
 
-    #[derive(Debug)]
     struct ChannelInfo {
         name: String,
         ref_name: String,
@@ -213,7 +213,7 @@ pub mod brainvision_core {
         position: u32,
         points: u32,
         nr: i32,
-        date: Option<String>,
+        date: Option<Date>,
     }
 
     impl From<Split<'_, char>> for MarkerInfo {
@@ -235,4 +235,69 @@ pub mod brainvision_core {
             }
         }
     }
+
+    pub struct Date {
+        year: u16,
+        month: u8,
+        day: u8,
+        hour: u8,
+        minute: u8,
+        second: u8,
+        microsecond: u32,
+    }
+
+    impl From<&str> for Date {
+        fn from(value: &str) -> Self {
+            let year = value[0..4].parse::<u16>().unwrap();
+            let month = value[4..6].parse::<u8>().unwrap();
+            let day = value[6..8].parse::<u8>().unwrap();
+            let hour = value[8..10].parse::<u8>().unwrap();
+            let minute = value[10..12].parse::<u8>().unwrap();
+            let second = value[12..14].parse::<u8>().unwrap();
+            let microsecond = value[14..20].parse::<u32>().unwrap();
+
+            Self {
+                year,
+                month,
+                day,
+                hour,
+                minute,
+                second,
+                microsecond,
+            }
+        }
+    }
+
+    impl Display for Date {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let month = match self.month {
+                1 => "January",
+                2 => "February",
+                3 => "March",
+                4 => "April",
+                5 => "May",
+                6 => "June",
+                7 => "July",
+                8 => "August",
+                9 => "September",
+                10 => "October",
+                11 => "November",
+                12 => "December",
+                _ => return Err(std::fmt::Error),
+            };
+
+            write!(
+                f,
+                "{} {} {}, {}:{}:{}.{}",
+                self.day, month, self.year, self.hour, self.minute, self.second, self.microsecond
+            )
+        }
+    }
+
+    struct RawData {
+        header: Header,
+        marker: Marker,
+    }
+
+    impl RawData {}
 }
