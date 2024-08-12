@@ -3,7 +3,7 @@ pub mod brainvision_core {
 
     use std::{io::Read, path::Path, str::Split};
 
-    pub(crate) struct Header {
+    pub struct Header {
         data_file: String,
         marker_file: String,
         num_channels: u32,
@@ -13,7 +13,7 @@ pub mod brainvision_core {
         num_data_points: u32,
         segmentation_type: String,
         binary_format: BinaryFormat,
-        channels: Vec<Channel>,
+        channels: Vec<ChannelInfo>,
         channel_coords: Option<Vec<Coordinates>>,
         comment: Option<String>,
     }
@@ -86,8 +86,8 @@ pub mod brainvision_core {
 
             let channels = channel_infos
                 .iter()
-                .map(|(_, v)| Channel::from(v.split(',')))
-                .collect::<Vec<Channel>>();
+                .map(|(_, v)| ChannelInfo::from(v.split(',')))
+                .collect::<Vec<ChannelInfo>>();
 
             let channel_coords = coordinates.map(|coords| {
                 coords
@@ -119,14 +119,14 @@ pub mod brainvision_core {
     }
 
     #[derive(Debug)]
-    struct Channel {
+    struct ChannelInfo {
         name: String,
         ref_name: String,
         resolution: f64,
         unit: String,
     }
 
-    impl From<Split<'_, char>> for Channel {
+    impl From<Split<'_, char>> for ChannelInfo {
         fn from(mut value: Split<char>) -> Self {
             let name = value.next().unwrap().into();
             let ref_name = value
@@ -165,18 +165,73 @@ pub mod brainvision_core {
         phi: f64,
     }
 
-    impl Coordinates {
-        pub(crate) const fn new(radius: f64, theta: f64, phi: f64) -> Self {
-            Self { radius, theta, phi }
-        }
-    }
-
     impl From<Split<'_, char>> for Coordinates {
         fn from(mut value: Split<'_, char>) -> Self {
             Coordinates {
                 radius: value.next().map(|s| s.parse::<f64>().unwrap()).unwrap(),
                 theta: value.next().map(|s| s.parse::<f64>().unwrap()).unwrap(),
                 phi: value.next().map(|s| s.parse::<f64>().unwrap()).unwrap(),
+            }
+        }
+    }
+
+    pub struct Marker {
+        data_file: String,
+        markers: Vec<MarkerInfo>,
+    }
+
+    impl Marker {
+        pub fn load<P>(path: P) -> Marker
+        where
+            P: AsRef<Path>,
+        {
+            let mut buf = String::new();
+            let _ = std::fs::File::open(path.as_ref())
+                .unwrap()
+                .read_to_string(&mut buf);
+            buf = buf.lines().skip(1).collect::<Vec<&str>>().join("\n");
+
+            let file = ini::Ini::load_from_str(&buf).unwrap();
+
+            let common_infos = file.section(Some("Common Infos")).unwrap();
+            let marker_infos = file.section(Some("Marker Infos")).unwrap();
+
+            let data_file = common_infos.get("DataFile").unwrap().into();
+
+            let markers = marker_infos
+                .iter()
+                .map(|(_, v)| MarkerInfo::from(v.split(',')))
+                .collect::<Vec<MarkerInfo>>();
+
+            Self { data_file, markers }
+        }
+    }
+
+    struct MarkerInfo {
+        r#type: String,
+        description: String,
+        position: u32,
+        points: u32,
+        nr: i32,
+        date: Option<String>,
+    }
+
+    impl From<Split<'_, char>> for MarkerInfo {
+        fn from(mut value: Split<'_, char>) -> Self {
+            let r#type = value.next().unwrap().into();
+            let description = value.next().unwrap().into();
+            let position = value.next().map(|s| s.parse::<u32>().unwrap()).unwrap();
+            let points = value.next().map(|s| s.parse::<u32>().unwrap()).unwrap();
+            let nr = value.next().map(|s| s.parse::<i32>().unwrap()).unwrap();
+            let date = value.next().map(|s| s.into());
+
+            Self {
+                r#type,
+                description,
+                position,
+                points,
+                nr,
+                date,
             }
         }
     }
