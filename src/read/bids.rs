@@ -2,7 +2,9 @@ pub mod brainvision_core {
     // * https://www.brainproducts.com/download/specification-of-brainvision-core-data-format-1-0/
 
     use core::str;
-    use std::{fmt::Display, io::Read, path::Path, str::Split};
+    use std::{fmt::Display, fs, io::Read, path::Path, str::Split};
+
+    use ndarray::{Array2, Shape};
 
     pub struct Header {
         data_file: String,
@@ -112,11 +114,28 @@ pub mod brainvision_core {
                 comment,
             }
         }
+
+        pub fn get_data_file(&self) -> &str {
+            &self.data_file
+        }
+
+        pub fn get_marker_file(&self) -> &str {
+            &self.marker_file
+        }
+
+        pub fn get_binary_format(&self) -> BinaryFormat {
+            self.binary_format
+        }
+
+        pub fn get_num_channels(&self) -> u32 {
+            self.num_channels
+        }
     }
 
-    enum BinaryFormat {
-        IeeeFloat32 = 0,
-        Int16 = 1,
+    #[derive(Clone, Copy)]
+    pub enum BinaryFormat {
+        IeeeFloat32 = 4,
+        Int16 = 2,
     }
 
     struct ChannelInfo {
@@ -294,10 +313,95 @@ pub mod brainvision_core {
         }
     }
 
-    struct RawData {
+    pub struct RawData {
         header: Header,
         marker: Marker,
+        data: Data,
     }
 
-    impl RawData {}
+    impl RawData {
+        pub fn load<P>(
+            root: P,
+            subject: &str,
+            session: Option<&str>,
+            task: &str,
+            acquisition: Option<&str>,
+            run: Option<&str>,
+        ) -> RawData
+        where
+            P: AsRef<Path>,
+        {
+            let mut base_path = root.as_ref().join(format!("sub-{}", subject));
+            if let Some(session) = session {
+                base_path.push(format!("ses-{}", session));
+            }
+            base_path.push("eeg");
+
+            let mut files_path = format!("sub-{}", subject);
+            if let Some(session) = session {
+                files_path += &format!("_ses-{}", session);
+            }
+            files_path.push_str(&format!("_task-{}", task));
+            if let Some(acquisition) = acquisition {
+                files_path += &format!("_acq-{}", acquisition);
+            }
+            if let Some(run) = run {
+                files_path += &format!("_run-{}", run);
+            }
+
+            let (header, marker) = (
+                Header::load(base_path.join(format!("{}_eeg.vhdr", files_path))),
+                Marker::load(base_path.join(format!("{}_eeg.vmrk", files_path))),
+            );
+
+            let rawdata = fs::read(base_path.join(header.get_data_file())).unwrap();
+            let (num_channels, data_bytes_size) = (
+                header.get_num_channels() as usize,
+                header.get_binary_format(),
+            );
+            let chunks = rawdata.chunks_exact(data_bytes_size as usize);
+            // ! Actual number of data points is `effective_data_points` + 1
+            let effective_data_points = chunks.len() / num_channels;
+            println!("({}, {})", num_channels, effective_data_points);
+            let data = match data_bytes_size {
+                BinaryFormat::IeeeFloat32 => Data::IeeeFloat32(
+                    Array2::from_shape_vec(
+                        (num_channels, effective_data_points),
+                        chunks
+                            .map(|x| {
+                                let mut rep = [0u8; 4];
+                                rep.copy_from_slice(x);
+                                f32::from_le_bytes(rep)
+                            })
+                            .collect::<Vec<f32>>(),
+                    )
+                    .unwrap(),
+                ),
+                BinaryFormat::Int16 => Data::Int16(
+                    Array2::from_shape_vec(
+                        (num_channels, effective_data_points),
+                        chunks
+                            .map(|x| {
+                                let mut rep = [0u8; 2];
+                                rep.copy_from_slice(x);
+                                u16::from_le_bytes(rep)
+                            })
+                            .collect::<Vec<u16>>(),
+                    )
+                    .unwrap(),
+                ),
+            };
+
+            RawData {
+                header,
+                marker,
+                data,
+            }
+        }
+    }
+
+    enum Data {
+        IeeeFloat32(Array2<f32>),
+        Int16(Array2<u16>),
+    }
 }
