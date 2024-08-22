@@ -3,7 +3,7 @@
 use core::{f32, str};
 use std::{fs, io::Read, path::Path, str::Split, u32};
 
-use ndarray::Array2;
+use ndarray::{Array2, ArrayView1};
 
 use super::BIDSPath;
 
@@ -156,8 +156,7 @@ impl Header {
     }
 }
 
-#[allow(private_bounds)]
-trait BinaryFormat: locked::Locked + Sized {
+pub(crate) trait BinaryFormat: locked::Locked + Sized {
     const BYTES: usize;
 
     fn from_bytes(bytes: &[u8]) -> Self;
@@ -246,13 +245,13 @@ impl From<Split<'_, char>> for Coordinates {
 }
 
 #[allow(private_bounds)]
-pub struct RawData<T: BinaryFormat> {
+pub struct Data<T: BinaryFormat> {
     data: Array2<T>,
 }
 
 #[allow(private_bounds)]
-impl<T: BinaryFormat> RawData<T> {
-    pub fn load<P: AsRef<Path>>(path: &BIDSPath<P>, header: &Header) -> RawData<T> {
+impl<T: BinaryFormat> Data<T> {
+    pub fn load<P: AsRef<Path>>(path: &BIDSPath<P>, header: &Header) -> Data<T> {
         let rawdata = fs::read(path.path.join(header.data_file())).unwrap();
         let num_channels = header.num_channels() as usize;
         let chunks = rawdata.chunks_exact(T::BYTES);
@@ -264,6 +263,10 @@ impl<T: BinaryFormat> RawData<T> {
         )
         .unwrap();
 
-        RawData { data }
+        Data { data }
+    }
+
+    pub fn channel(&self, index: usize) -> ArrayView1<T> {
+        self.data.column(index)
     }
 }

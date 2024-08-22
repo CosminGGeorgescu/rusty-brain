@@ -1,15 +1,15 @@
 [package]
 name = "rusty-brain"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["Cosmin-Gabriel Georgescu"]
 edition = "2021"
 description = "The Rust crate with everything your brain needs!"
 repository = "https://github.com/CosminGGeorgescu/rusty-brain"
+license = "Apache-2.0"
 keywords = ["EEG"]
 categories = ["science::neuroscience"]
 
 [dependencies]
 nalgebra = "0.33.0"
 ndarray = "0.16.0"
-plotters = "0.3.6"
 rust-ini = "0.21.1"
