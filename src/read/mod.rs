@@ -2,8 +2,9 @@ use std::path::{Path, PathBuf};
 
 pub mod brainvision_core;
 
-///! As of now, it is adapted specifically for the EEG specification
-///* https://bids-specification.readthedocs.io/en/stable/modality-specific-files/electroencephalography.html
+/// As of now, it is adapted specifically for the EEG specification
+///
+/// <https://bids-specification.readthedocs.io/en/stable/modality-specific-files/electroencephalography.html>
 pub struct BIDSPath<'a, P: AsRef<Path>> {
     path: PathBuf,
     root: P,
