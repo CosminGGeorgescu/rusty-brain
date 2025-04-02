@@ -7,9 +7,9 @@ use ndarray::{Array1, Array2};
 use num_traits::identities::Zero;
 use std::f32::consts::PI;
 
-pub trait FourierTransform {
-    // Naive DFT algorithm
-    fn dft(&self) -> Array1<Complex<f32>>;
+// Trait which implements a single FFT algorithm on real-valued time-domain data
+// Used in computing the inverse FFT
+trait FourierTransform {
     // Cooley-Tukey radix-2 FFT algorithm
     fn fft(&self) -> Array1<Complex<f32>>;
 }
@@ -24,11 +24,43 @@ pub trait RealFourierTransform {
     fn stft(&self, window_size: usize, hop_size: usize) -> Array2<f32>;
 }
 
-pub trait InverseFourierTransform {
+// Trait which implement different inverse FFT algorithms to real-valued time-domain data
+pub trait RealInverseFourierTransform {
     fn idft(&self) -> Array1<f32>;
+    fn irfft(&self) -> Array1<f32>;
 }
 
 impl<S> FourierTransform for ArrayBase<S, Ix1>
+where
+    S: Data<Elem = Complex<f32>>,
+{
+    fn fft(&self) -> Array1<Complex<f32>> {
+        let n = self.len();
+
+        if n == 1 {
+            return Array1::from_elem(1, self[0]);
+        }
+
+        let even = self.slice(s![..; 2]);
+        let odd = self.slice(s![1..; 2]);
+
+        let fft_even = even.fft();
+        let fft_odd = odd.fft();
+
+        let mut result = Array1::zeros(n);
+        for k in 0..n / 2 {
+            let angle = -2.0 * PI * k as f32 / n as f32;
+            let twiddle = Complex::new(angle.cos(), angle.sin());
+
+            result[k] = fft_even[k] + twiddle * fft_odd[k];
+            result[k + n / 2] = fft_even[k] - twiddle * fft_odd[k];
+        }
+
+        result
+    }
+}
+
+impl<S> RealFourierTransform for ArrayBase<S, Ix1>
 where
     S: Data<Elem = f32>,
 {
@@ -103,7 +135,7 @@ where
     }
 }
 
-impl<S> InverseFourierTransform for ArrayBase<S, Ix1>
+impl<S> RealInverseFourierTransform for ArrayBase<S, Ix1>
 where
     S: Data<Elem = Complex<f32>>,
 {
@@ -125,5 +157,9 @@ where
         }
 
         result / n as f32
+    }
+
+    fn irfft(&self) -> Array1<f32> {
+        self.map(|x| x.conj()).fft().map(|x| x.conj().norm()) / self.len() as f32
     }
 }
