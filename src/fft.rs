@@ -12,6 +12,14 @@ pub trait FourierTransform {
     fn dft(&self) -> Array1<Complex<f32>>;
     // Cooley-Tukey radix-2 FFT algorithm
     fn fft(&self) -> Array1<Complex<f32>>;
+}
+
+// Trait which implements different FFT algorithms on real-valued time-domain data
+pub trait RealFourierTransform {
+    // Naive DFT
+    fn dft(&self) -> Array1<Complex<f32>>;
+    // Cooley-Tukey radix-2 FFT algorithm
+    fn rfft(&self) -> Array1<Complex<f32>>;
     // Short-time FT implementation using a sine window
     fn stft(&self, window_size: usize, hop_size: usize) -> Array2<f32>;
 }
@@ -44,7 +52,7 @@ where
         result
     }
 
-    fn fft(&self) -> Array1<Complex<f32>> {
+    fn rfft(&self) -> Array1<Complex<f32>> {
         let n = self.len();
 
         if n == 1 {
@@ -54,16 +62,17 @@ where
         let even = self.slice(s![..; 2]);
         let odd = self.slice(s![1..; 2]);
 
-        let fft_even = even.fft();
-        let fft_odd = odd.fft();
+        let fft_even = even.rfft();
+        let fft_odd = odd.rfft();
 
         let mut result = Array1::zeros(n);
         for k in 0..n / 2 {
             let angle = -2.0 * PI * k as f32 / n as f32;
             let twiddle = Complex::new(angle.cos(), angle.sin());
 
-            result[k] = fft_even[k] + twiddle * fft_odd[k];
-            result[k + n / 2] = fft_even[k] - twiddle * fft_odd[k];
+            let ttodd = twiddle * fft_odd[k];
+            result[k] = fft_even[k] + ttodd;
+            result[k + n / 2] = fft_even[k] - ttodd;
         }
 
         result
@@ -83,7 +92,7 @@ where
             frame
                 .slice_mut(s![..window_size])
                 .assign(&(&self.slice(s![start..start + window_size]) * &window));
-            let spectrum = frame.fft();
+            let spectrum = frame.rfft();
 
             result
                 .slice_mut(s![i, ..])
