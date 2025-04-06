@@ -1,35 +1,58 @@
 // * https://www.brainproducts.com/download/specification-of-brainvision-core-data-format-1-0/
 
 use core::{f32, str};
-use std::{fs, io::Read, path::Path, str::Split, u32};
+use std::{fmt::Debug, fs, io::Read, path::Path, str::Split};
 
 use ndarray::{Array2, ArrayView1};
 
 use super::BIDSPath;
 
 mod locked {
+    // Trait used to restrict the data type the raw data can be formatted to
+    // BrainVision Core Data Format 1.0 supports only `f32` and `i16`
     pub(crate) trait Locked {}
 
     impl Locked for f32 {}
     impl Locked for i16 {}
 }
 
+// Struct containing all of the information provided in the header file of the associated `task`,
+// `acquisition` and `run`, provided to the `Header::load` method.
+//
+// sub-<subject>[_ses-<session>]_task-<task>[_acq-<acquisition>][_run-<run>]_eeg.vhdr
+#[derive(Debug)]
 pub struct Header {
-    data_file: String,
-    marker_file: String,
-    num_channels: u32,
-    sampling_interval: f64,
-    averaged: bool,
-    averaged_segms: u32,
-    num_data_points: u32,
-    segmentation_type: String,
-    binary_format: BinaryFormatType,
-    channels: Vec<ChannelInfo>,
-    channel_coords: Option<Vec<Coordinates>>,
-    comment: Option<String>,
+    // Name of the EEG data file
+    pub data_file: String,
+    // Name of marker file
+    pub marker_file: String,
+    // Number of channels in the EEG data file
+    pub num_channels: u32,
+    pub sampling_interval: f64,
+    // Indicates whether the data set is averaged across segments
+    pub averaged: bool,
+    // Number of segments included in the average
+    pub averaged_segms: u32,
+    // Number of samples per channel
+    pub segment_data_points: u32,
+    // Type of segmentation
+    // - NOTSEGMENTED: The data set is not segmented
+    // - MARKERBASED: The data set is segmented based
+    pub segmentation_type: String,
+    // Encoding of data in EEG data file
+    // - IEEE_FLOAT_32: IEEE floating-point format, single precision, 4 bytes per value
+    // - INT_16: 16-bit signed integer
+    pub binary_format: BinaryFormatType,
+    // Stores information about each channel, provided in the `[Channel Infos]` section
+    pub channels: Vec<ChannelInfo>,
+    // Stores information about each channel's coordinates, provided in the `Coordinates` section
+    pub channel_coords: Option<Vec<Coordinates>>,
+    // Stores the `[Comment]` section
+    pub comment: Option<String>,
 }
 
 impl Header {
+    // Load a header file by providing the `path` to a BIDS-compliant data recording
     pub fn load<P: AsRef<Path>>(
         path: &BIDSPath<P>,
         task: &str,
@@ -104,7 +127,7 @@ impl Header {
             true => common_infos.get("SegmentationType").unwrap(),
         }
         .into();
-        let num_data_points = if averaged && segmentation_type == "MARKERBASED" {
+        let segment_data_points = if averaged && segmentation_type == "MARKERBASED" {
             common_infos
                 .get("SegmentDataPoints")
                 .map(|s| s.parse::<u32>().unwrap())
@@ -138,21 +161,13 @@ impl Header {
             sampling_interval,
             averaged,
             averaged_segms,
-            num_data_points,
+            segment_data_points,
             segmentation_type,
             binary_format,
             channels,
             channel_coords,
             comment,
         }
-    }
-
-    pub fn data_file(&self) -> &str {
-        &self.data_file
-    }
-
-    pub fn num_channels(&self) -> u32 {
-        self.num_channels
     }
 }
 
@@ -182,13 +197,15 @@ impl BinaryFormat for i16 {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum BinaryFormatType {
     IeeeFloat32,
     Int16,
 }
 
-struct ChannelInfo {
+// Information about a channel
+#[derive(Debug)]
+pub struct ChannelInfo {
     name: String,
     ref_name: String,
     resolution: f64,
@@ -228,7 +245,9 @@ impl From<Split<'_, char>> for ChannelInfo {
     }
 }
 
-struct Coordinates {
+// Coordinates of a channel
+#[derive(Debug)]
+pub struct Coordinates {
     radius: f64,
     theta: f64,
     phi: f64,
@@ -244,29 +263,39 @@ impl From<Split<'_, char>> for Coordinates {
     }
 }
 
+// The formated data associated with a header
+//
+// sub-<subject>[_ses-<session>]_task-<task>[_acq-<acquisition>][_run-<run>]_eeg.eeg
 #[allow(private_bounds)]
+#[derive(Debug)]
 pub struct Data<T: BinaryFormat> {
     data: Array2<T>,
 }
 
 #[allow(private_bounds)]
-impl<T: BinaryFormat> Data<T> {
+impl<T: BinaryFormat + Clone> Data<T> {
     pub fn load<P: AsRef<Path>>(path: &BIDSPath<P>, header: &Header) -> Data<T> {
-        let rawdata = fs::read(path.path.join(header.data_file())).unwrap();
-        let num_channels = header.num_channels() as usize;
+        // Load the raw data
+        let rawdata = fs::read(path.path.join(header.data_file.as_str())).unwrap();
+        let num_channels = header.num_channels as usize;
+        // Cut the raw data into chunks based on the binary format of the dataset's data type
         let chunks = rawdata.chunks_exact(T::BYTES);
-        // ! Actual number of data points is `effective_data_points` + 1
+        // Actual number of data points is `effective_data_points` + 1
         let effective_data_points = chunks.len() / num_channels;
+        // Format the raw data according to the binary representation
+        // Data orientation is N x M, where N is the number of channels and M is number of samples
         let data = Array2::from_shape_vec(
-            (num_channels, effective_data_points),
+            (effective_data_points, num_channels),
             chunks.map(|c| T::from_bytes(c)).collect::<Vec<T>>(),
         )
-        .unwrap();
+        .unwrap()
+        .t()
+        .to_owned();
 
         Data { data }
     }
 
     pub fn channel(&self, index: usize) -> ArrayView1<T> {
-        self.data.column(index)
+        self.data.row(index)
     }
 }
