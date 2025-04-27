@@ -6,21 +6,16 @@
 	- Fast Fourier Transform using the Cooley-Tukey radix-2 algorithm
 	- Short-time Fourier Transform using a sine window
 - Inverse
-	- naive IDFT# Features
-
-### Fourier Transforms
-- Forward
-	- naive DFT
-	- Fast Fourier Transform using the Cooley-Tukey radix-2 algorithm
-	- Short-time Fourier Transform using a sine window
-- Inverse
 	- naive IDFT
-	- [ ] IFFT
+    - [ ] IFFT
 	- [ ] ISTFT
 
-### Covariance
+### Covariance computation
 - Population and Sample covariance for 2-dimensional arrays
 - Data orientation considered: $$N_{channels}\texttimes M_{samples}$$
+
+### Filtering
+- FIR filtering using Overlap-Add method by FFT multiplications
 
 ### Loading data in [BrainVision Core Data Format 1.0](https://www.brainproducts.com/support-resources/brainvision-core-data-format-1-0/)
 
