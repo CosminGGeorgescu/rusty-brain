@@ -1,14 +1,10 @@
 use nalgebra::Complex;
-use ndarray::s;
-use ndarray::ArrayBase;
-use ndarray::Data;
-use ndarray::Ix1;
-use ndarray::{Array1, Array2};
+use ndarray::{s, Array1, Array2, ArrayBase, Data, Ix1};
 use num_traits::identities::Zero;
 use std::f32::consts::PI;
 
 // Trait which implements a single FFT algorithm on real-valued time-domain data
-// Used in computing the inverse FFT
+// Used in computing the real inverse FFT
 trait FourierTransform {
     // Cooley-Tukey radix-2 FFT algorithm
     fn fft(&self) -> Array1<Complex<f32>>;
@@ -41,13 +37,16 @@ where
             return Array1::from_elem(1, self[0]);
         }
 
+        // Divide the input signal into even and odd indices subslices
         let even = self.slice(s![..; 2]);
         let odd = self.slice(s![1..; 2]);
 
+        // Recurse on the subslices
         let fft_even = even.fft();
         let fft_odd = odd.fft();
 
         let mut result = Array1::zeros(n);
+        // Iterate over only half of the input signal as real-valued data is Hermitian symmetric
         for k in 0..n / 2 {
             let angle = -2.0 * PI * k as f32 / n as f32;
             let twiddle = Complex::new(angle.cos(), angle.sin());
@@ -111,7 +110,9 @@ where
     }
 
     fn stft(&self, window_size: usize, hop_size: usize) -> Array2<f32> {
+        // Pad the window size to be of power-of-2 length
         let next_pow_2 = window_size.next_power_of_two();
+        // Construct the sine window function
         let window = Array1::from_iter(
             (0..window_size).map(|n| (PI * (n as f32 + 0.5) / window_size as f32).sin()),
         );
@@ -159,16 +160,22 @@ where
         result / n as f32
     }
 
+    // One way of computing the inverse FFT for a real-valued signal
+    // Conjugates the data, applies a forward FFT, conjugates the output and discards the imaginary
+    // part, as the input signal to the FFT operation we are trying to reverse should have been
+    // real-valued
     fn irfft(&self) -> Array1<f32> {
-        self.map(|x| x.conj()).fft().map(|x| x.conj().norm()) / self.len() as f32
+        self.map(|x| x.conj()).fft().map(|x| x.conj().re) / self.len() as f32
     }
 }
 
+// Computes the FFT frequencies for an n-point FFT with the `sampling_freq` in Hz
 pub fn freqs(n: usize, sampling_freq: f32) -> Array1<f32> {
     let df = sampling_freq / n as f32;
     Array1::from_iter((0..n).map(|i| (i - if i < n / 2 { 0 } else { n }) as f32 * df))
 }
 
+// Computes the FFT frequencies for an n-point real FFT with the `sampling_freq` in Hz
 pub fn rfreqs(n: usize, sampling_freq: f32) -> Array1<f32> {
     let n_pos = n / 2 + 1;
     Array1::from_iter((0..n_pos).map(|i| i as f32 * sampling_freq / n as f32))
