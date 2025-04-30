@@ -163,3 +163,13 @@ where
         self.map(|x| x.conj()).fft().map(|x| x.conj().norm()) / self.len() as f32
     }
 }
+
+pub fn freqs(n: usize, sampling_freq: f32) -> Array1<f32> {
+    let df = sampling_freq / n as f32;
+    Array1::from_iter((0..n).map(|i| (i - if i < n / 2 { 0 } else { n }) as f32 * df))
+}
+
+pub fn rfreqs(n: usize, sampling_freq: f32) -> Array1<f32> {
+    let n_pos = n / 2 + 1;
+    Array1::from_iter((0..n_pos).map(|i| i as f32 * sampling_freq / n as f32))
+}
