@@ -3,6 +3,7 @@ pub mod fft;
 pub mod filter;
 #[allow(dead_code)]
 pub mod read;
+pub mod s_transform;
 
 #[cfg(test)]
 mod tests {
