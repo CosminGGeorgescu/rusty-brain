@@ -1,4 +1,4 @@
-use ndarray::{ArrayBase, Axis, Data, Ix2, OwnedRepr};
+use ndarray::{Array2, ArrayBase, Axis, Data, Ix2};
 
 pub enum CovarianceType {
     Population = 0,
@@ -11,14 +11,14 @@ where
 {
     // TODO
     // - Add `is_centered` parameter
-    fn compute_covariance(&self, cov_t: CovarianceType) -> ArrayBase<OwnedRepr<f32>, Ix2>;
+    fn compute_covariance(&self, cov_t: CovarianceType) -> Array2<f32>;
 }
 
 impl<S> Covariance<S> for ArrayBase<S, Ix2>
 where
     S: Data<Elem = f32>,
 {
-    fn compute_covariance(&self, cov_t: CovarianceType) -> ArrayBase<OwnedRepr<f32>, Ix2> {
+    fn compute_covariance(&self, cov_t: CovarianceType) -> Array2<f32> {
         let m_samples = self.dim().1;
 
         let mean = self.mean_axis(Axis(1)).unwrap().insert_axis(Axis(1));
