@@ -4,6 +4,7 @@ pub mod filter;
 #[allow(dead_code)]
 pub mod read;
 pub mod s_transform;
+pub mod wavelet;
 
 #[cfg(test)]
 mod tests {
