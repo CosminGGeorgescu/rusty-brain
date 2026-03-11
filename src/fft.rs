@@ -4,7 +4,7 @@ use ndarray::{s, Array1, Array2, ArrayBase, Data, Ix1};
 use num_traits::identities::Zero;
 use std::f32::consts::PI;
 
-// Trait which implements a different FFT algorithms, from complex-valued time-domain data to
+// Trait which implements different FFT algorithms, from complex-valued time-domain data to
 // complex-valued frequency-domain
 pub trait FourierTransform {
     fn dft(&self) -> Array1<Complex<f32>>;

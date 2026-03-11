@@ -5,9 +5,6 @@ use ndarray::ArrayBase;
 use ndarray::Data;
 use ndarray::Ix1;
 use num_traits::Float;
-use num_traits::Zero;
-
-use crate::fft::RealFourierTransform;
 
 pub trait Wavelet {
     type Dtype: Float;

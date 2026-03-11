@@ -64,18 +64,18 @@ impl Header {
             "sub-{}{}_task-{}{}{}_{}.vhdr",
             path.subject,
             if let Some(session) = path.session {
-                format!("_ses-{}", session)
+                format!("_ses-{session}")
             } else {
                 String::default()
             },
             task,
             if let Some(acquisition) = acquisition {
-                format!("_acq-{}", acquisition)
+                format!("_acq-{acquisition}")
             } else {
                 String::default()
             },
             if let Some(run) = run {
-                format!("_run-{}", run)
+                format!("_run-{run}")
             } else {
                 String::default()
             },
@@ -112,7 +112,8 @@ impl Header {
             || false,
             |s| match s {
                 "YES" => true,
-                "NO" | _ => false,
+                "NO" => false,
+                _ => false,
             },
         );
         let averaged_segms = match averaged {

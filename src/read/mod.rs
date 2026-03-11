@@ -22,9 +22,9 @@ pub struct BIDSPath<'a, P: AsRef<Path>> {
 
 impl<'a, P: AsRef<Path>> BIDSPath<'a, P> {
     pub fn new(root: P, subject: &'a str, session: Option<&'a str>, datatype: &'a str) -> Self {
-        let mut path = root.as_ref().join(format!("sub-{}", subject));
+        let mut path = root.as_ref().join(format!("sub-{subject}"));
         if let Some(session) = session {
-            path.push(format!("ses-{}", session));
+            path.push(format!("ses-{session}"));
         }
         path.push(datatype);
 
