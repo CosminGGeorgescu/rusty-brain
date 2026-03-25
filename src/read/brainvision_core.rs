@@ -296,7 +296,7 @@ impl<T: BinaryFormat + Clone> Data<T> {
         Data { data }
     }
 
-    pub fn channel(&self, index: usize) -> ArrayView1<T> {
+    pub fn channel(&self, index: usize) -> ArrayView1<'_, T> {
         self.data.row(index)
     }
 }
